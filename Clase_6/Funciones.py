@@ -204,6 +204,20 @@ def coupon_m360(parametros):
                           for i in range(0,future_coupon_dates.size)])
     
         coupon_pays = np.array([(1+coupon[i]/100)**delta[x]-1 for x in range(0,delta.size)])
+        #coupon_pays= np.array([])
+        #for x in range(0,delta.size):
+        #    if i==36:
+        #        detalle_01=1+coupon[i]/100
+        #        print(detalle_01,'-',delta[x])
+        #    respuesta=(1+coupon[i]/100)**delta[x]-1
+        #    coupon_pays= np.append(coupon_pays, respuesta)  
+
+        #if i==36:
+        #    print(coupon_dates)
+        #    print(coupon_days_diff)
+        #    print(delta)
+        #    print(coupon_pays)
+        ## nominal o nocional o principal
         ## nominal o nocional o principal
         coupon_pays[-1] = coupon_pays[-1]+ 1.0
         #calcular los dias al descuento
@@ -249,7 +263,7 @@ def coupon_m365ind(parametros):
         issue = dt.datetime.strptime(str(ini_date[i]),'%Y-%m-%d').date()
         days_diff = maturity-issue
         
-        flow = days_diff.days/(frec_pag[i]*(360/12))+2 #Se suma 2 para garantizar
+        flow = days_diff.days/(frec_pag[i]*(365/12))+2 #Se suma 2 para garantizar
                             # que se generan todos los flujos requeridos.
         
         coupon_dates= np.array([])
@@ -274,11 +288,16 @@ def coupon_m365ind(parametros):
         coupon_dates_adj = coupon_dates[coupon_dates>=prev_coupon]
         coupon_days_diff = [np.diff(coupon_dates_adj)[i].days for i in\
                             range(0,coupon_dates_adj.size-1)]
-        delta = np.array([coupon_days_diff[-future_coupon_dates.size:][i]/360 \
+        delta = np.array([coupon_days_diff[-future_coupon_dates.size:][i]/365 \
                           for i in range(0,future_coupon_dates.size)])
         
         coupon_pays = np.array([(1+((1+coupon[i]/100)*(1+indicador[i]/100)-1))**delta[x]-1 \
                           for x in range(0,delta.size)])
+        #if i==19:
+        #    print(coupon_dates)
+        #    print(coupon_days_diff)
+        #    print(delta)
+        #    print(coupon_pays)
         ## nominal o nocional o principal
         coupon_pays[-1] = coupon_pays[-1]+ 1.0
         #calcular los dias al descuento
@@ -287,7 +306,7 @@ def coupon_m365ind(parametros):
         ### Agregar informacion 
         cpn_complete[i] = coupon_pays
         days_complete[i] = days_count
-    
+
     days_matrix = np.sort(np.unique(list(itertools.chain.from_iterable(days_complete))))
     instruments = coupon.size
     coupon_matrix = np.zeros((days_matrix.size,instruments))
@@ -304,9 +323,116 @@ def coupon_m365ind(parametros):
     return dict_out
 
 
+####--------------------------------------------------
+####--------------------------------------------------
+def coupon_mGen(parametros):
+    """
+    coupon_m: Generalizada 
+    Tasa Fija -     Actual 365
+    Tasa Fija -     Actual 360
+    Tasa Indexada - Actual 360
+
+    :parametros: entrar como arrays
+    """
+    val_date = np.array(parametros['val_date'])
+    ini_date = np.array(parametros['ini_date'])
+    fin_date = np.array(parametros['fin_date'])
+    coupon = np.array(parametros['coupon'])
+    frec_pag = np.array(parametros['frec_pag']) ###added
+    indicador = np.array(parametros['indicador'])### 0 fijo si no indexado
+    conteo_dias =np.array(parametros['conteo_dias'])### REAL/360 o REAL/365
+
+    cpn_complete = [[0]]*coupon.size
+    days_complete = [[0]]*coupon.size
+    for i in range(0,coupon.size):
+        ## Calcular las fechas de cupones
+        maturity = dt.datetime.strptime(str(fin_date[i]),'%Y-%m-%d').date()
+        valuation = dt.datetime.strptime(str(val_date),'%Y-%m-%d').date()
+        issue = dt.datetime.strptime(str(ini_date[i]),'%Y-%m-%d').date()
+        days_diff = maturity-issue
+        if conteo_dias[i]=='REAL/365':
+            flow = days_diff.days/(frec_pag[i]*(365/12))+2 #Se suma 2 para garantizar
+                            # que se generan todos los flujos requeridos.
+        elif conteo_dias[i]=='REAL/360':
+             flow = days_diff.days/(frec_pag[i]*(360/12))+2
+
+        
+        coupon_dates= np.array([])
+        for x in range(int(flow)):
+            if x==0:
+                years_0=0
+            elif (frec_pag[i]*x)%12==0:
+                years_0=(frec_pag[i]*x)/12
+            months_0=(frec_pag[i]*x)%12
+            respuesta=issue + relativedelta(years=years_0) +relativedelta(months=months_0) 
+            coupon_dates = np.append(coupon_dates, respuesta) 
+                   
+        #print(coupon_dates.shape)
+        coupon_dates[coupon_dates>maturity] = maturity
+        coupon_dates = np.unique(coupon_dates)
+        future_coupon_dates = coupon_dates[coupon_dates>valuation]
+        future_coupon_dates = np.sort(future_coupon_dates)
+        try:
+            prev_coupon = coupon_dates[coupon_dates<=valuation][-1]
+        except:
+            prev_coupon = issue
+        #Calcular el delta de los cupones
+        coupon_dates_adj = coupon_dates[coupon_dates>=prev_coupon]
+        coupon_days_diff = [np.diff(coupon_dates_adj)[i].days for i in\
+                            range(0,coupon_dates_adj.size-1)]
+        if conteo_dias[i]=='REAL/365':
+            delta = np.array([coupon_days_diff[-future_coupon_dates.size:][i]/365 \
+                          for i in range(0,future_coupon_dates.size)])
+        elif conteo_dias[i]=='REAL/360':
+            delta = np.array([coupon_days_diff[-future_coupon_dates.size:][i]/360 \
+                          for i in range(0,future_coupon_dates.size)])
+
+        if indicador[i]!=0:        
+            coupon_pays = np.array([(1+((1+coupon[i]/100)*(1+indicador[i]/100)-1))**delta[x]-1 \
+                          for x in range(0,delta.size)])
+        else:
+            coupon_pays = np.array([(1+coupon[i]/100)**delta[x]-1 for x in range(0,delta.size)])
+
+        coupon_pays[-1] = coupon_pays[-1]+ 1.0
+        #calcular los dias al descuento
+        days_count = (future_coupon_dates-valuation)
+        days_count = np.array([days_count[x].days for x in range(0,days_count.size)])
+        ### Agregar informacion 
+        cpn_complete[i] = coupon_pays
+        #days_complete[i] = days_count
+        if conteo_dias[i]=='REAL/365':
+            days_complete[i] = days_count/365
+        elif conteo_dias[i]=='REAL/360':
+            days_complete[i] = days_count/360
+        #if i ==36:
+        #    print(days_complete[i])
+
+
+    days_matrix = np.sort(np.unique(list(itertools.chain.from_iterable(days_complete))))
+    instruments = coupon.size
+    coupon_matrix = np.zeros((days_matrix.size,instruments))
+    coupon_matrix =pd.DataFrame(coupon_matrix)
+    #Construyendo matriz
+    for j in range(0,coupon.size):
+        coupon_matrix.iloc[np.in1d(days_matrix, days_complete[j]),j] = cpn_complete[j]
+    coupon_matrix = np.array(coupon_matrix) 
+    
+    dict_out = ({
+            'coupon_matrix':coupon_matrix,
+            'days_matrix':days_matrix
+            })
+    return dict_out
+
+
+####--------------------------------------------------
+####--------------------------------------------------
+
+
+
+
 def discount_factor_m(parametros):
-    discount_rates = parametros['discount_rates_ind']
-    #discount_rates = parametros['discount_rates']
+    #discount_rates = parametros['discount_rates_ind']
+    discount_rates = parametros['discount_rates']
     delta_t = parametros['delta_t']
     d_r = np.array(discount_rates)
     d_r = d_r.reshape(d_r.size,1)
