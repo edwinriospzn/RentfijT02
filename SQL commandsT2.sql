@@ -1129,6 +1129,28 @@ left join trabajo_2.tabla_indices
 on
 concat(trabajo_2.tabla_indices.Indice_c,trabajo_2.tabla_indices.fecha_indice) =
 concat(trabajo_2.tabla_precios.Indicador_indexado,trabajo_2.tabla_precios.fecha_valoracion)
-where
-trabajo_2.tabla_precios.frecuencia_pago=12
 order by trabajo_2.tabla_precios.Tipo, trabajo_2.tabla_precios.Indice_tipo;
+
+/* 5 Crear tabla para guardar las curvas de cada titulo---------------------------------------*/
+CREATE TABLE trabajo_2.curvas (
+	Tipo VARCHAR(12) NOT NULL,
+	b0 DECIMAL(14,6) NOT NULL DEFAULT 0,
+    b1 DECIMAL(14,6) NOT NULL DEFAULT 0,
+    b2 DECIMAL(14,6) NOT NULL DEFAULT 0,
+    b3 DECIMAL(14,6) NOT NULL DEFAULT 0
+)
+COMMENT='Tabla curvas';
+INSERT INTO trabajo_2.curvas (Tipo,b0,b1,b2,b3) VALUES
+('T1','0','0','0','0'),
+('T2','0','0','0','0'),
+('T3','0','0','0','0'),
+('T4','0','0','0','0'),
+('T5','0','0','0','0')
+;
+
+
+
+
+
+
+
